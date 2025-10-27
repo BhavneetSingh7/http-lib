@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// type Listener net.Resolver
+
 func handleSignals(ln *net.Listener) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
@@ -17,7 +19,7 @@ func handleSignals(ln *net.Listener) {
 		case syscall.SIGINT, syscall.SIGTERM:
 			(*ln).Close()
 			fmt.Println("closing server")
-			fmt.Println(*ln)
+			// fmt.Println(*ln)
 			syscall.Exit(0)
 		}
 	}
@@ -71,7 +73,5 @@ func main() {
 			continue
 		}
 		go handleConnection(&conn)
-		// time.Sleep(2*time.Second)
 	}
-
 }
