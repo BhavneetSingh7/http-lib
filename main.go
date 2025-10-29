@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"io"
 	"os/signal"
 	"syscall"
 	"time"
+	"strings"
 )
 
-// type Listener net.Resolver
 
 func handleSignals(ln *net.Listener) {
 	c := make(chan os.Signal, 1)
@@ -42,6 +43,7 @@ func handleConnection(conn *net.Conn) {
 	(*conn).Close()
 }
 
+
 func SendReq() {
 	r := "GET /hey HTTP/1.1 \r\n Host: localhost \r\n"
 	// fmt.Println(r)
@@ -59,7 +61,8 @@ func SendReq() {
 	d.Close()
 }
 
-func main() {
+
+func Server() {
 	sock, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		fmt.Println("error occured while creating listener")
@@ -73,5 +76,65 @@ func main() {
 			continue
 		}
 		go handleConnection(&conn)
+	}
+}
+
+func GetLinesChannel(f io.ReadCloser) <-chan string {
+	d := make([]byte, 8)
+	line := ""
+	ch := make(chan string)
+	go func() {
+		for {
+			// Read
+			n, err := f.Read(d)
+			if err != nil {
+				if err != io.EOF {fmt.Println("error occured while reading file: ", err)}
+				close(ch)
+				break
+			}
+			
+			// Parse
+			part := strings.Split(string(d[:n]), "\n")
+			line += part[0]
+			if len(part)==1 {
+				if n!=8 {ch <- line}
+				continue
+			}
+
+			ch <- line
+			for i:=1; i<len(part)-1; i++ {
+				line = part[i]
+				ch <- line
+			}
+			line = part[len(part)-1]
+		}
+	}()
+	return ch
+}
+
+
+func main() {
+	// ReadFile("messages.txt")
+	l, err := net.Listen("tcp", ":42069")
+	if err != nil {
+		fmt.Println("error occured while listening: ", err)
+		return
+	}
+	defer l.Close()
+	go handleSignals(&l)
+
+	for {
+		conn, err := l.Accept()
+		if err!=nil {
+			fmt.Println("error occured while accepting connection: ", err)
+			continue
+		}
+		fmt.Println("connection has been accepted")
+		ch := GetLinesChannel(conn)
+		for i:= range ch {
+			fmt.Printf("%s\n", i)
+		}
+		conn.Close()
+		fmt.Println("connection has been closed")
 	}
 }
